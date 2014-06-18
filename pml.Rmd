@@ -1,0 +1,179 @@
+```{r, echo=FALSE}
+opts_chunk$set(cache=TRUE, message=FALSE)
+```
+Human Activity Recognition
+==========================
+
+This R Markdown document describes the analysis performed to create a human activity prediction model based on data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants.
+
+---
+
+## Preliminaries
+
+### Load libraries and data
+
+```{r}
+library(caret)
+
+# Load data, considering the strings 'NA', 'NULL' and blank spaces to be NA values
+trainData <- read.csv('data/pml-training.csv', na.strings=c('', 'NA', 'NULL'))
+testData <- read.csv('data/pml-testing.csv', na.strings=c('', 'NA', 'NULL'))
+```
+
+---
+
+## Exploratory Analysis
+
+### Check dimension, names and take a look at the first rows
+
+```{r, results='hide'}
+dim(trainData)
+
+names(trainData)
+
+head(trainData)
+```
+
+Looks like there are a lot of NAs. Let's check missing values and ranges
+
+```{r}
+summary(trainData)
+```
+
+### Check data types
+
+```{r, results='hide'}
+# Data type per column
+sapply(trainData[1, ], class)
+
+# Look for duplicated columns
+duplicated(names(trainData))
+```
+
+### Check the type of activity
+
+```{r}
+unique(trainData$classe)
+
+table(trainData$classe)
+```
+
+## Preprocess data
+
+### Check and remove predictors with zero variance
+```{r}
+nsv <- nearZeroVar(trainData,saveMetrics=TRUE)
+zeroVarPredictors <- nsv[nsv[,"zeroVar"] == TRUE,]
+
+# Drop predictors with zero variance in both the train and the test sets
+dropColumns <- names(trainData) %in% row.names(zeroVarPredictors)
+trainData <- trainData[,!dropColumns]
+testData <- testData[,!dropColumns]
+```
+
+### Remove columns with lots of missing values
+
+```{r}
+# Sum NAs per column
+blankValues <- apply(trainData, 2, function(x) {sum(is.na(x))})
+
+# Remove columns with more than 50% of NAs
+threshold <- nrow(trainData) * 0.5
+trainData <- trainData[, which(blankValues < threshold)]
+testData <- testData[, which(blankValues < threshold)]
+```
+
+### Drop other columns that are not good predictors
+```{r}
+dropColumns <- grep("timestamp|user_name|new_window|num_window|X", names(trainData))
+trainData <- trainData[, -dropColumns]
+testData <- testData[, -dropColumns]
+```
+
+## Modeling
+
+Once the data is preprocessed, split the training data in a train and test set
+
+```{r}
+# Set the seed to make the model reproducible
+set.seed(1445)
+inTrain = createDataPartition(trainData$classe, p = 0.7, list=FALSE)
+# 70% of the original training data will be used to train the model
+trainingSet <- trainData[inTrain,]
+# The remaining 30% will be used to test the model
+testingSet <- trainData[-inTrain,]
+```
+
+To optimize the computation time, take advantage of the parallel computing. The code is run in a 4 cores machine, so we allow it to use up to three cores
+
+```{r, results='hide'}
+# Parallel computing setup
+library(doMC)
+registerDoMC(cores = 3)
+```
+
+### Fit a random forest model
+
+Define some parameters to control the training. Use cross-validation with 4 folds.
+
+```{r, results='hide'}
+# RandomForest
+trControl <- trainControl(method = "cv", number = 4, verboseIter=T)
+modelFit <- train(classe ~., data=trainingSet, method="rf", trControl=trControl, allowParallel=TRUE)
+```
+```{r}
+# Model summary
+modelFit
+# Final model
+modelFit$finalModel
+```
+
+The final model selected has a high accuracy on the training set. The confusion matrix above shows the low error rates.
+
+### Testing the model
+
+```{r}
+# Test the model with a test set
+predictions <- predict(modelFit, newdata=testingSet)
+```
+```{r, echo=FALSE, results='hide'}
+predictions
+```
+
+The confusion matrix shows the high accuracy on the test set
+
+```{r}
+confusionMatrix(predictions,testingSet$classe)
+```
+
+```{r, echo=FALSE, results='hide'}
+importance(modelFit$finalModel)
+
+summary(modelFit)
+```
+
+```{r, echo=FALSE}
+varImpPlot(modelFit$finalModel, sort=TRUE,n.var=20, main="Importance for top 20 attributes", col="dark blue", pch=19)
+
+plot(modelFit$finalModel, log="y", main="Error rates vs number of trees")
+```
+
+### Apply the model
+
+```{r}
+predictions <- predict(modelFit, newdata=testData)
+predictions
+```
+
+```{r, echo=FALSE, results='hide'}
+# Build answer files
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+
+pml_write_files(predictions)
+```
