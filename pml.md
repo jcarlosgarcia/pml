@@ -3,8 +3,7 @@ Human Activity Recognition
 ==========================
 
 This R Markdown document describes the analysis performed to create a human activity prediction model based on data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants.
-
----
+More information is available from the website [here][1].
 
 ## Preliminaries
 
@@ -19,8 +18,6 @@ trainData <- read.csv('data/pml-training.csv', na.strings=c('', 'NA', 'NULL'))
 testData <- read.csv('data/pml-testing.csv', na.strings=c('', 'NA', 'NULL'))
 ```
 
----
-
 ## Exploratory Analysis
 
 ### Check dimension, names and take a look at the first rows
@@ -34,7 +31,7 @@ names(trainData)
 head(trainData)
 ```
 
-Looks like there are a lot of NAs. Let's check missing values and ranges
+The data set has 19622 observations and 160 possible predictors. Looks like there are a lot of NAs. Let's check missing values and ranges.
 
 
 ```r
@@ -388,6 +385,8 @@ summary(trainData)
 ## 
 ```
 
+The summary confirms that there are lots of predictors that can be removed because of their missing values.
+
 ### Check data types
 
 
@@ -400,6 +399,8 @@ duplicated(names(trainData))
 ```
 
 ### Check the type of activity
+
+Check the type of activity and how the observations are distributed.
 
 
 ```r
@@ -435,18 +436,22 @@ trainData <- trainData[,!dropColumns]
 testData <- testData[,!dropColumns]
 ```
 
+After removing the zero variance predictors, the set has now 154 possible predictors.
+
 ### Remove columns with lots of missing values
 
 
 ```r
 # Sum NAs per column
-blankValues <- apply(trainData, 2, function(x) {sum(is.na(x))})
+blankValues <- apply(trainData, 2, function(x) { sum(is.na(x)) })
 
 # Remove columns with more than 50% of NAs
 threshold <- nrow(trainData) * 0.5
 trainData <- trainData[, which(blankValues < threshold)]
 testData <- testData[, which(blankValues < threshold)]
 ```
+
+We previously detected that there were a lot of missing values, so we drop the predictors which have more than 50% of missing values. This threshold value of 50% is somewhat arbitrary, we will review this if the model performs poorly. The set has now 60 possible predictors.
 
 ### Drop other columns that are not good predictors
 
@@ -456,38 +461,41 @@ trainData <- trainData[, -dropColumns]
 testData <- testData[, -dropColumns]
 ```
 
+Drop timestamp, user_name, new_window, num_window and X, they do not seem to be good predictors. There are still 53 possible predictors. We could try a dimensionality reduction algorithm such as PCA or SVD, but at this point we think a random forest may have a good performance with 53 predictors.
+
 ## Modeling
 
-Once the data is preprocessed, split the training data in a train and test set
+Once the data is preprocessed, split the training data in a train and test set to validate our model. We will configure our model to use 4 folds for cross-validation. As mentioned in the [documentation][2], "In random forests, there is no need for cross-validation or a separate test set to get an unbiased estimate of the test set error. It is estimated internally, during the run".  
 
 
 ```r
 # Set the seed to make the model reproducible
 set.seed(1445)
-inTrain = createDataPartition(trainData$classe, p = 0.7, list=FALSE)
+inTrain = createDataPartition(trainData$classe, p=0.7, list=FALSE)
 # 70% of the original training data will be used to train the model
 trainingSet <- trainData[inTrain,]
 # The remaining 30% will be used to test the model
 testingSet <- trainData[-inTrain,]
 ```
 
-To optimize the computation time, take advantage of the parallel computing. The code is run in a 4 cores machine, so we allow it to use up to three cores
+To optimize the computation time, take advantage of the parallel computing. The code is run in a multi-core machine, so we allow it to use up to the total number of cores - 1.
 
 
 ```r
 # Parallel computing setup
 library(doMC)
-registerDoMC(cores = 3)
+numCores <- detectCores()
+registerDoMC(cores = numCores - 1)
 ```
 
 ### Fit a random forest model
 
-Define some parameters to control the training. Use cross-validation with 4 folds.
+Define some parameters to control the training of the random forest. Use cross-validation with 10 folds. The 'classe' variable is the outcome, the attribute we want to predict.
 
 
 ```r
 # RandomForest
-trControl <- trainControl(method = "cv", number = 4, verboseIter=T)
+trControl <- trainControl(method="cv", number=cvFolds, verboseIter=T)
 modelFit <- train(classe ~., data=trainingSet, method="rf", trControl=trControl, allowParallel=TRUE)
 ```
 
@@ -504,16 +512,16 @@ modelFit
 ##     5 classes: 'A', 'B', 'C', 'D', 'E' 
 ## 
 ## No pre-processing
-## Resampling: Cross-Validated (4 fold) 
+## Resampling: Cross-Validated (10 fold) 
 ## 
-## Summary of sample sizes: 10303, 10303, 10303, 10302 
+## Summary of sample sizes: 12362, 12363, 12365, 12363, 12363, 12363, ... 
 ## 
 ## Resampling results across tuning parameters:
 ## 
 ##   mtry  Accuracy  Kappa  Accuracy SD  Kappa SD
-##   2     1         1      0.002        0.003   
-##   30    1         1      0.001        0.001   
-##   50    1         1      0.001        0.002   
+##   2     1         1      0.003        0.004   
+##   30    1         1      0.002        0.002   
+##   50    1         1      0.002        0.003   
 ## 
 ## Accuracy was used to select the optimal model using  the largest value.
 ## The final value used for the model was mtry = 27.
@@ -532,17 +540,17 @@ modelFit$finalModel
 ##                      Number of trees: 500
 ## No. of variables tried at each split: 27
 ## 
-##         OOB estimate of  error rate: 0.66%
+##         OOB estimate of  error rate: 0.65%
 ## Confusion matrix:
 ##      A    B    C    D    E class.error
 ## A 3900    3    2    0    1    0.001536
-## B   18 2633    6    0    1    0.009406
-## C    0    7 2377   12    0    0.007930
-## D    0    2   24 2225    1    0.011989
-## E    0    1    5    7 2512    0.005149
+## B   14 2638    6    0    0    0.007524
+## C    0    9 2376   11    0    0.008347
+## D    0    2   27 2223    0    0.012877
+## E    0    2    5    7 2511    0.005545
 ```
 
-The final model selected has a high accuracy on the training set. The confusion matrix above shows the low error rates.
+The final model selected has a high accuracy on the training set as seen in the confusion matrix above shows the low error rates.
 
 ### Testing the model
 
@@ -553,7 +561,7 @@ predictions <- predict(modelFit, newdata=testingSet)
 ```
 
 
-The confusion matrix shows the high accuracy on the test set
+The confusion matrix shows the high accuracy on the test set.
 
 
 ```r
@@ -565,10 +573,10 @@ confusionMatrix(predictions,testingSet$classe)
 ## 
 ##           Reference
 ## Prediction    A    B    C    D    E
-##          A 1671    6    0    0    0
-##          B    2 1130    3    0    1
-##          C    0    3 1018    5    0
-##          D    0    0    5  958    0
+##          A 1673    7    0    0    0
+##          B    0 1127    4    0    1
+##          C    0    4 1018    5    0
+##          D    0    1    4  958    0
 ##          E    1    0    0    1 1081
 ## 
 ## Overall Statistics
@@ -584,21 +592,36 @@ confusionMatrix(predictions,testingSet$classe)
 ## Statistics by Class:
 ## 
 ##                      Class: A Class: B Class: C Class: D Class: E
-## Sensitivity             0.998    0.992    0.992    0.994    0.999
-## Specificity             0.999    0.999    0.998    0.999    1.000
-## Pos Pred Value          0.996    0.995    0.992    0.995    0.998
-## Neg Pred Value          0.999    0.998    0.998    0.999    1.000
+## Sensitivity             0.999    0.989    0.992    0.994    0.999
+## Specificity             0.998    0.999    0.998    0.999    1.000
+## Pos Pred Value          0.996    0.996    0.991    0.995    0.998
+## Neg Pred Value          1.000    0.997    0.998    0.999    1.000
 ## Prevalence              0.284    0.194    0.174    0.164    0.184
 ## Detection Rate          0.284    0.192    0.173    0.163    0.184
-## Detection Prevalence    0.285    0.193    0.174    0.164    0.184
-## Balanced Accuracy       0.998    0.995    0.995    0.996    0.999
+## Detection Prevalence    0.285    0.192    0.175    0.164    0.184
+## Balanced Accuracy       0.999    0.994    0.995    0.996    0.999
 ```
 
 
+```r
+error <- sum(predictions != testingSet$classe) * 100 / nrow(testingSet)
+```
 
-![plot of chunk unnamed-chunk-18](figure/unnamed-chunk-181.png) ![plot of chunk unnamed-chunk-18](figure/unnamed-chunk-182.png) 
+The test set error is 0.4758%
 
-### Apply the model
+
+
+## Figures
+
+The next figure shows the importance measures for the top 20 attributes, in decreasing order of importance.
+
+![plot of chunk unnamed-chunk-20](figure/unnamed-chunk-20.png) 
+
+The next plot shows the error rates vs number of trees. As the number of trees increases the error rates decrease. The number of trees used in the analysis is 500. This number should not be too small to ensure that every input row gets predicted at least a few times.
+
+![plot of chunk unnamed-chunk-21](figure/unnamed-chunk-21.png) 
+
+## Prediction
 
 
 ```r
@@ -612,3 +635,12 @@ predictions
 ```
 
 
+
+## Conclusion
+The model selected was able to predict the 100% of the 20 cases provided. The total number of 53 predictors could probably be reduced, but given the high accuracy and performance obtained with this model we decided it is not worth the effort.
+
+## References
+1. Groupware@LES - Human Activity Recognition
+[1]: http://groupware.les.inf.puc-rio.br/har 
+2. Random forests - The out-of-bag (oob) error estimate
+[2]: http://www.stat.berkeley.edu/~breiman/RandomForests/cc_home.htm#ooberr
