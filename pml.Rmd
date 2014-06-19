@@ -121,7 +121,7 @@ registerDoMC(cores = numCores - 1)
 ```
 
 ### Fit a random forest model
-```{r, echo=FALSE, results='hide'}
+```{r}
 cvFolds <- 10
 ```
 Define some parameters to control the training of the random forest. Use cross-validation with `r cvFolds` folds. The 'classe' variable is the outcome, the attribute we want to predict.

@@ -490,6 +490,9 @@ registerDoMC(cores = numCores - 1)
 
 ### Fit a random forest model
 
+```r
+cvFolds <- 10
+```
 Define some parameters to control the training of the random forest. Use cross-validation with 10 folds. The 'classe' variable is the outcome, the attribute we want to predict.
 
 
