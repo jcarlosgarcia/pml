@@ -655,7 +655,7 @@ predictions
 
 
 ## Conclusion
-The model selected was able to predict the 100% of the 20 cases provided. The total number of 53 predictors could probably be reduced, but given the high accuracy and performance obtained with this model we decided it is not worth the effort.
+The model selected was able to predict the 100% of the 20 cases provided. The total number of 52 predictors could probably be reduced, but given the high accuracy and performance obtained with this model we decided it is not worth the effort.
 
 ## References
 1. Groupware@LES - Human Activity Recognition
