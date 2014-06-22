@@ -31,7 +31,7 @@ names(trainData)
 head(trainData)
 ```
 
-The data set has 19622 observations and 160 possible predictors. Looks like there are a lot of NAs. Let's check missing values and ranges.
+The data set has 19622 observations and 160 possible predictors. Looks like there is a lot of NAs. Let's check missing values and ranges.
 
 
 ```r
@@ -436,7 +436,7 @@ trainData <- trainData[,!dropColumns]
 testData <- testData[,!dropColumns]
 ```
 
-After removing the zero variance predictors, the set has now 154 possible predictors.
+After removing the zero variance predictors, the set has 154 possible predictors.
 
 ### Remove columns with lots of missing values
 
@@ -451,7 +451,7 @@ trainData <- trainData[, which(blankValues < threshold)]
 testData <- testData[, which(blankValues < threshold)]
 ```
 
-We previously detected that there were a lot of missing values, so we drop the predictors which have more than 50% of missing values. This threshold value of 50% is somewhat arbitrary, we will review this if the model performs poorly. The set has now 60 possible predictors.
+We previously detected that there were lots of missing values, so we drop the predictors which have more than 50% of missing values. This threshold value of 50% is somewhat arbitrary, we will review this if the model performs poorly. The set has now 60 possible predictors.
 
 ### Drop other columns that are not good predictors
 
@@ -553,7 +553,18 @@ modelFit$finalModel
 ## E    0    2    5    7 2511    0.005545
 ```
 
-The final model selected has a high accuracy on the training set as seen in the confusion matrix above shows the low error rates.
+The final model selected has a high accuracy on the training set as seen in the confusion matrix above.
+
+### In Sample Error
+
+
+```r
+# In Sample Error
+predictions <- predict(modelFit, newdata=trainingSet)
+inSampleError <- sum(predictions != trainingSet$classe) * 100 / nrow(trainingSet)
+```
+
+The In Sample error calculated is 0%
 
 ### Testing the model
 
@@ -605,12 +616,16 @@ confusionMatrix(predictions,testingSet$classe)
 ## Balanced Accuracy       0.999    0.994    0.995    0.996    0.999
 ```
 
+### Out of Sample Error
+
+Given that the random forest performs cross validation internally and the good results, we would expect a low out of sample error:
+
 
 ```r
-error <- sum(predictions != testingSet$classe) * 100 / nrow(testingSet)
+outOfSampleError <- sum(predictions != testingSet$classe) * 100 / nrow(testingSet)
 ```
 
-The test set error is 0.4758%
+The Out of Sample error calculated on the test set is 0.4758%
 
 
 
@@ -618,11 +633,11 @@ The test set error is 0.4758%
 
 The next figure shows the importance measures for the top 20 attributes, in decreasing order of importance.
 
-![plot of chunk unnamed-chunk-20](figure/unnamed-chunk-20.png) 
+![plot of chunk unnamed-chunk-21](figure/unnamed-chunk-21.png) 
 
 The next plot shows the error rates vs number of trees. As the number of trees increases the error rates decrease. The number of trees used in the analysis is 500. This number should not be too small to ensure that every input row gets predicted at least a few times.
 
-![plot of chunk unnamed-chunk-21](figure/unnamed-chunk-21.png) 
+![plot of chunk unnamed-chunk-22](figure/unnamed-chunk-22.png) 
 
 ## Prediction
 

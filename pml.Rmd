@@ -31,7 +31,7 @@ names(trainData)
 head(trainData)
 ```
 
-The data set has `r nrow(trainData)` observations and `r ncol(trainData)` possible predictors. Looks like there are a lot of NAs. Let's check missing values and ranges.
+The data set has `r nrow(trainData)` observations and `r ncol(trainData)` possible predictors. Looks like there is a lot of NAs. Let's check missing values and ranges.
 
 ```{r}
 summary(trainData)
@@ -72,7 +72,7 @@ trainData <- trainData[,!dropColumns]
 testData <- testData[,!dropColumns]
 ```
 
-After removing the zero variance predictors, the set has now `r ncol(trainData)` possible predictors.
+After removing the zero variance predictors, the set has `r ncol(trainData)` possible predictors.
 
 ### Remove columns with lots of missing values
 
@@ -86,7 +86,7 @@ trainData <- trainData[, which(blankValues < threshold)]
 testData <- testData[, which(blankValues < threshold)]
 ```
 
-We previously detected that there were a lot of missing values, so we drop the predictors which have more than 50% of missing values. This threshold value of 50% is somewhat arbitrary, we will review this if the model performs poorly. The set has now `r ncol(trainData)` possible predictors.
+We previously detected that there were lots of missing values, so we drop the predictors which have more than 50% of missing values. This threshold value of 50% is somewhat arbitrary, we will review this if the model performs poorly. The set has now `r ncol(trainData)` possible predictors.
 
 ### Drop other columns that are not good predictors
 ```{r}
@@ -138,7 +138,17 @@ modelFit
 modelFit$finalModel
 ```
 
-The final model selected has a high accuracy on the training set as seen in the confusion matrix above shows the low error rates.
+The final model selected has a high accuracy on the training set as seen in the confusion matrix above.
+
+### In Sample Error
+
+```{r}
+# In Sample Error
+predictions <- predict(modelFit, newdata=trainingSet)
+inSampleError <- sum(predictions != trainingSet$classe) * 100 / nrow(trainingSet)
+```
+
+The In Sample error calculated is `r inSampleError`%
 
 ### Testing the model
 
@@ -156,11 +166,15 @@ The confusion matrix shows the high accuracy on the test set.
 confusionMatrix(predictions,testingSet$classe)
 ```
 
+### Out of Sample Error
+
+Given that the random forest performs cross validation internally and the good results, we would expect a low out of sample error:
+
 ```{r}
-error <- sum(predictions != testingSet$classe) * 100 / nrow(testingSet)
+outOfSampleError <- sum(predictions != testingSet$classe) * 100 / nrow(testingSet)
 ```
 
-The test set error is `r error`%
+The Out of Sample error calculated on the test set is `r outOfSampleError`%
 
 ```{r, echo=FALSE, results='hide'}
 importance(modelFit$finalModel)
