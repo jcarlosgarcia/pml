@@ -1,11 +1,16 @@
+---
+output: 
+  html_document: 
+    keep_md: yes
+---
 ```{r, echo=FALSE}
-opts_chunk$set(cache=TRUE, message=FALSE)
+#opts_chunk$set(cache=TRUE, message=FALSE)
 ```
 Human Activity Recognition
 ==========================
 
-This R Markdown document describes the analysis performed to create a human activity prediction model based on data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants.
-More information is available from the website [here][1].
+This R Markdown document describes the analysis performed to create a human activity prediction model based on data from accelerometers on the belt, forearm, arm, and dumbbell of 6 participants.
+More information is available from the website [here](http://groupware.les.inf.puc-rio.br/har).
 
 ## Preliminaries
 
@@ -15,8 +20,8 @@ More information is available from the website [here][1].
 library(caret)
 
 # Load data, considering the strings 'NA', 'NULL' and blank spaces to be NA values
-trainData <- read.csv('data/pml-training.csv', na.strings=c('', 'NA', 'NULL'))
-testData <- read.csv('data/pml-testing.csv', na.strings=c('', 'NA', 'NULL'))
+trainData <- read.csv('data/pml-training.csv', na.strings = c('', 'NA', 'NULL'))
+testData <- read.csv('data/pml-testing.csv', na.strings = c('', 'NA', 'NULL'))
 ```
 
 ## Exploratory Analysis
@@ -31,7 +36,7 @@ names(trainData)
 head(trainData)
 ```
 
-The data set has `r nrow(trainData)` observations and `r ncol(trainData)` possible predictors. Looks like there is a lot of NAs. Let's check missing values and ranges.
+The data set has `r nrow(trainData)` observations and `r ncol(trainData)` possible predictors. Looks like there are a lot of NAs. Let's check missing values and ranges.
 
 ```{r}
 summary(trainData)
@@ -63,13 +68,13 @@ table(trainData$classe)
 
 ### Check and remove predictors with zero variance
 ```{r}
-nsv <- nearZeroVar(trainData,saveMetrics=TRUE)
-zeroVarPredictors <- nsv[nsv[,"zeroVar"] == TRUE,]
+nsv <- nearZeroVar(trainData,saveMetrics = TRUE)
+zeroVarPredictors <- nsv[nsv[, "zeroVar"] == TRUE, ]
 
 # Drop predictors with zero variance in both the train and the test sets
 dropColumns <- names(trainData) %in% row.names(zeroVarPredictors)
-trainData <- trainData[,!dropColumns]
-testData <- testData[,!dropColumns]
+trainData <- trainData[, !dropColumns]
+testData <- testData[, !dropColumns]
 ```
 
 After removing the zero variance predictors, the set has `r ncol(trainData)` possible predictors.
@@ -99,16 +104,16 @@ Drop timestamp, user_name, new_window, num_window and X, they do not seem to be 
 
 ## Modeling
 
-Once the data is preprocessed, split the training data in a train and test set to validate our model. We will configure our model to use 4 folds for cross-validation. As mentioned in the [documentation][2], "In random forests, there is no need for cross-validation or a separate test set to get an unbiased estimate of the test set error. It is estimated internally, during the run".  
+Once the data is preprocessed, split the training data in a train and test set to validate our model. We will configure our model to use 10 folds for cross-validation. As mentioned in the [documentation](http://www.stat.berkeley.edu/~breiman/RandomForests/cc_home.htm#ooberr), "In random forests, there is no need for cross-validation or a separate test set to get an unbiased estimate of the test set error. It is estimated internally, during the run".  
 
 ```{r}
 # Set the seed to make the model reproducible
 set.seed(1445)
-inTrain = createDataPartition(trainData$classe, p=0.7, list=FALSE)
+inTrain <- createDataPartition(trainData$classe, p = 0.7, list = FALSE)
 # 70% of the original training data will be used to train the model
-trainingSet <- trainData[inTrain,]
+trainingSet <- trainData[inTrain, ]
 # The remaining 30% will be used to test the model
-testingSet <- trainData[-inTrain,]
+testingSet <- trainData[-inTrain, ]
 ```
 
 To optimize the computation time, take advantage of the parallel computing. The code is run in a multi-core machine, so we allow it to use up to the total number of cores - 1.
@@ -128,14 +133,15 @@ Define some parameters to control the training of the random forest. Use cross-v
 
 ```{r, results='hide'}
 # RandomForest
-trControl <- trainControl(method="cv", number=cvFolds, verboseIter=T)
-modelFit <- train(classe ~., data=trainingSet, method="rf", trControl=trControl, allowParallel=TRUE)
+trControl <- trainControl(method = "cv", number = cvFolds, verboseIter = TRUE)
+modelFit <- train(classe ~., data = trainingSet, method = "rf", trControl = trControl, allowParallel = TRUE)
 ```
 ```{r}
 # Model summary
 modelFit
 # Final model
-modelFit$finalModel
+finalModel <- modelFit$finalModel
+finalModel
 ```
 
 The final model selected has a high accuracy on the training set as seen in the confusion matrix above.
@@ -144,7 +150,7 @@ The final model selected has a high accuracy on the training set as seen in the 
 
 ```{r}
 # In Sample Error
-predictions <- predict(modelFit, newdata=trainingSet)
+predictions <- predict(finalModel, newdata = trainingSet)
 inSampleError <- sum(predictions != trainingSet$classe) * 100 / nrow(trainingSet)
 ```
 
@@ -154,13 +160,13 @@ The In Sample error calculated is `r inSampleError`%
 
 ```{r}
 # Test the model with a test set
-predictions <- predict(modelFit, newdata=testingSet)
+predictions <- predict(finalModel, newdata = testingSet)
 ```
 ```{r, echo=FALSE, results='hide'}
 predictions
 ```
 
-The confusion matrix shows the high accuracy on the test set.
+The confusion matrix shows a high accuracy on the test set.
 
 ```{r}
 confusionMatrix(predictions,testingSet$classe)
@@ -177,9 +183,9 @@ outOfSampleError <- sum(predictions != testingSet$classe) * 100 / nrow(testingSe
 The Out of Sample error calculated on the test set is `r outOfSampleError`%
 
 ```{r, echo=FALSE, results='hide'}
-importance(modelFit$finalModel)
+importance(finalModel)
 
-summary(modelFit)
+summary(finalModel)
 ```
 
 ## Figures
@@ -187,29 +193,30 @@ summary(modelFit)
 The next figure shows the importance measures for the top 20 attributes, in decreasing order of importance.
 
 ```{r, echo=FALSE}
-varImpPlot(modelFit$finalModel, sort=TRUE, n.var=20, main="Importance for top 20 attributes", col="dark blue", pch=19)
+varImpPlot(finalModel, sort = TRUE, n.var = 20, main = "Importance for top 20 attributes", col = "dark blue", pch = 19)
 ```
 
 The next plot shows the error rates vs number of trees. As the number of trees increases the error rates decrease. The number of trees used in the analysis is 500. This number should not be too small to ensure that every input row gets predicted at least a few times.
 
 ```{r, echo=FALSE}
-plot(modelFit$finalModel, log="y", main="Error rates vs number of trees")
+plot(finalModel, log = "y", main = "Error rates vs number of trees")
+legend("topright", pch = 1, col = 1:length(finalModel$err.rate), legend = colnames(finalModel$err.rate), cex = 0.6)
 ```
 
 ## Prediction
 
 ```{r}
-predictions <- predict(modelFit, newdata=testData)
+predictions <- predict(finalModel, newdata = testData)
 predictions
 ```
 
 ```{r, echo=FALSE, results='hide'}
 # Build answer files
-pml_write_files = function(x){
+pml_write_files = function(x) {
   n = length(x)
   for(i in 1:n){
-    filename = paste0("problem_id_",i,".txt")
-    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+    filename = paste0("problem_id_", i, ".txt")
+    write.table(x[i], file = filename,quote = FALSE, row.names = FALSE, col.names = FALSE)
   }
 }
 
@@ -221,6 +228,4 @@ The model selected was able to predict the 100% of the 20 cases provided. The to
 
 ## References
 1. Groupware@LES - Human Activity Recognition
-[1]: http://groupware.les.inf.puc-rio.br/har 
 2. Random forests - The out-of-bag (oob) error estimate
-[2]: http://www.stat.berkeley.edu/~breiman/RandomForests/cc_home.htm#ooberr
